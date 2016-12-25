@@ -11,6 +11,7 @@
  */
 
 #include <linux/vmalloc.h>
+#include <linux/kdev_t.h>
 
 #include "dm-dedup-target.h"
 #include "dm-dedup-rw.h"
@@ -334,8 +335,10 @@ static int handle_write(struct dedup_config *dc, struct bio *bio)
 	if (bio->bi_iter.bi_size < dc->block_size) {
 		dc->reads_on_writes++;
 		new_bio = prepare_bio_on_write(dc, bio);
-		if (!new_bio || IS_ERR(new_bio))
+		if (!new_bio)
 			return -ENOMEM;
+		else if(IS_ERR(new_bio))
+			return PTR_ERR(new_bio);
 		bio = new_bio;
 	}
 
@@ -847,6 +850,13 @@ static void dm_dedup_status(struct dm_target *ti, status_type_t status_type,
 		DMEMIT("%llu %llu %llu %llu ",
 			data_total_block_count, data_free_block_count,
 			data_used_block_count, data_actual_block_count);
+
+		DMEMIT("%d %d:%d %d:%d ",
+			dc->block_size,
+			MAJOR(dc->data_dev->bdev->bd_dev),
+			MINOR(dc->data_dev->bdev->bd_dev),
+			MAJOR(dc->metadata_dev->bdev->bd_dev),
+			MINOR(dc->metadata_dev->bdev->bd_dev));
 
 		DMEMIT("%llu %llu %llu %llu %llu %llu",
 			dc->writes, dc->uniqwrites, dc->dupwrites,
